@@ -1,7 +1,8 @@
-from steam_gaming_behavior.api_key_management import api_key_initialization
+from steam_gaming_behavior.initialization import initialize
 
 def main():
-    api_key = api_key_initialization()
+    api_key, steam_id = initialize()
+
 
 if __name__ == "__main__":
     main()
