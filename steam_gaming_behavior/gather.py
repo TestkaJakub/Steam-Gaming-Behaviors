@@ -8,7 +8,6 @@ def get_games(api_key, steam_id, get_all = False):
     else:
         request = "http://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v0001/?key={}&steamid={}&format=json".format(api_key, steam_id)
     response = urllib3.request("GET", request).data
-    print(response)
     decoded_response = response.decode('utf-8')
     response_dict = json.loads(decoded_response)
     recently_played = response_dict['response']['games']
