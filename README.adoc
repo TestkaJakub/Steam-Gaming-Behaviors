@@ -1,0 +1,25 @@
+= Steam Gaming Behaviors
+
+The Steam Gaming Behaviors aims to collect and analyze gaming data to provide visual insights into your gameplay behaviors. The project is fueled by a curiosity for data-driven understanding and the enjoyment of visually appealing graphs.
+
+== Prerequisites
+
+* https://steamcommunity.com/dev[Access to Steam Web API]
+
+== Set-up process
+
+. Clone the project and go into it, open CMD and paste
++
+[source, bat]
+----
+git clone https://github.com/TestkaJakub/Steam-Gaming-Behaviors.git
+cd Steam-Gaming-Behaviors
+----
+
+. Install requirements
++
+[source,bat]
+----
+pip install -r requirements.txt
+----
+
