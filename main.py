@@ -51,7 +51,7 @@ def schedule_midnight_task(api_key, steam_id, db_file, interval=86400):
         time.sleep(seconds_until_midnight)
 
         print(f"Running scheduled task at midnight: {datetime.now()}")
-        midnight_task()
+        midnight_task(api_key, steam_id, db_file)
 
 
 def main():
