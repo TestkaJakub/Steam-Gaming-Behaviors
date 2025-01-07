@@ -2,11 +2,7 @@ import time
 from datetime import datetime, timedelta
 from threading import Thread
 from steam_gaming_behavior.initialization import initialize
-from steam_gaming_behavior.gather import get_games
 from steam_gaming_behavior.database import database_check, table_initialization, update_games_data
-
-import sqlite3
-import os
 
 def fetch_and_process_games(api_key, steam_id, db_file):
     required_tables = ["games_initial", "games_recent"]
