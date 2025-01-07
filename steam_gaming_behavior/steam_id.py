@@ -1,6 +1,7 @@
 import os
 import urllib3
 import json
+import logging
 
 from .dotenv import write_into_dotenv
 from .utils import countdown, clear_screen
@@ -10,13 +11,13 @@ def get_steam_id_and_save_into_dotenv(env_path, api_key):
 
     # If steam id not in dotenv get it from user and save into dotenv
     if not steam_id:
-        print("Steam ID not found!")
+        logging.info("Steam ID not found!")
         steam_id = ask_for_steam_id(api_key)
         write_into_dotenv(env_path, key="STEAM_ID", value=steam_id)
     
     # If steam id found in dotenv inform user
     else:
-        print(f"Using Steam ID from .env file.")
+        logging.info(f"Using Steam ID from .env file.")
 
     # Return steam id
     return steam_id
@@ -67,9 +68,9 @@ def request_steam_id_from_steam_vanity_url(api_key, steam_vanity_url):
 
 def steam_id_validation(steam_id):
     if not steam_id.isdigit():
-        print(f"Provided Steam ID '{steam_id}' is not valid. Must be numeric.")
+        logging.warning(f"Provided Steam ID '{steam_id}' is not valid. Must be numeric.")
         return False
     if not (len(steam_id) == 17):
-        print(f"Steam ID '{steam_id}' must be 17 characters long.")
+        logging.warning(f"Steam ID '{steam_id}' must be 17 characters long.")
         return False
     return True
