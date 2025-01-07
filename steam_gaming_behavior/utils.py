@@ -1,9 +1,10 @@
 import time
 import os
+import logging
 
 def countdown(seconds):
     for i in range(seconds, 0, -1):
-        print(f"Waiting: {i} seconds...")
+        logging.info(f"Waiting: {i} seconds...")
         time.sleep(1)
     clear_screen()
 
