@@ -119,7 +119,7 @@ def update_games_data(conn, data, env_path, timestamp=None):
     try:
         # Determine the timestamp to use
         if not timestamp:
-            calculated_timestamp = (datetime.now() + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+            calculated_timestamp = datetime.now()
             timestamp = calculated_timestamp.strftime("%Y-%m-%d %H:%M:%S")
             write_into_dotenv(env_path, "LAST_HOURLY_UPDATE", timestamp)
 
