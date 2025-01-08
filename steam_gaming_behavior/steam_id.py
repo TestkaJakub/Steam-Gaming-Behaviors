@@ -11,13 +11,13 @@ def get_steam_id_and_save_into_dotenv(env_path, api_key):
 
     # If steam id not in dotenv get it from user and save into dotenv
     if not steam_id:
-        logging.info("Steam ID not found!")
+        logging.debug("Steam ID not found!")
         steam_id = ask_for_steam_id(api_key)
         write_into_dotenv(env_path, key="STEAM_ID", value=steam_id)
     
     # If steam id found in dotenv inform user
     else:
-        logging.info(f"Using Steam ID from .env file.")
+        logging.debug(f"Using Steam ID from .env file.")
 
     # Return steam id
     return steam_id
@@ -29,14 +29,17 @@ def ask_for_steam_id(api_key):
 
             match option:
                 case "1": # Input steam id directly
+                    logging.debug("Asking user for Steam ID")
                     steam_id = input("Please enter your Steam ID: ")
 
                     break
                 case "2": # Get steam id based on steam vanity url
+                    logging.debug("Asking user for Steam vanity URL")
                     steam_vanity_url = input("Please enter your Steam vanity URL")
                     steam_id = request_steam_id_from_steam_vanity_url(api_key, steam_vanity_url)
                     break
                 case _: # Incorrect method of steam id setting up
+                    logging.debug("Incorrect preferred method of setting up the Steam ID")
                     print(f"Incorrect method '{option}', please try again")
     
         # return if steam id is valid
@@ -48,6 +51,7 @@ def ask_for_steam_id(api_key):
         print("Try again.")
 
 def ask_for_preferred_method_of_steam_id_setting_up():
+    logging.debug("Asking user for preferred method of setting up the Steam ID")
     print("""Please choose preferred method of setting up the Steam ID (1 or 2)
         1) Direct Steam ID insertion
         2) Determine Steam ID based on steam vanity URL
@@ -68,9 +72,9 @@ def request_steam_id_from_steam_vanity_url(api_key, steam_vanity_url):
 
 def steam_id_validation(steam_id):
     if not steam_id.isdigit():
-        logging.warning(f"Provided Steam ID '{steam_id}' is not valid. Must be numeric.")
+        logging.debug(f"Provided Steam ID '{steam_id}' is not valid. Must be numeric.")
         return False
     if not (len(steam_id) == 17):
-        logging.warning(f"Steam ID '{steam_id}' must be 17 characters long.")
+        logging.debug(f"Steam ID '{steam_id}' must be 17 characters long.")
         return False
     return True

@@ -10,66 +10,84 @@ def prompt_choice(prompt, options, default):
     choice = input().strip()
     return options.get(choice, options[default])
 
+def log_to_file_only(logger, message, level=logging.INFO):
+    """
+    Logs a message directly to the file handler without duplicating it in the console.
+    """
+    for handler in logger.handlers:
+        if isinstance(handler, logging.FileHandler):
+            if handler.level <= level:
+                logger.log(level, message, extra={"handler_only": handler})
+
 def setup_logging(env_path, did_env_existed):
-    valid_levels = {"CRITICAL": logging.CRITICAL, "ERROR": logging.ERROR, "WARNING": logging.WARNING, "INFO": logging.INFO}
+    valid_levels = {"CRITICAL": logging.CRITICAL, "ERROR": logging.ERROR, "WARNING": logging.WARNING, "INFO": logging.INFO, "DEBUG": logging.DEBUG}
 
     if not did_env_existed:
-        notification_prompt = (
-            "It seems it's your first time using steam gaming behaviors.\n"
-            "What is your preferred program notification level, default (4)?"
+        console_level_prompt = (
+            "It seems it's your first time using Steam Gaming Behaviors.\n"
+            "What level of notifications would you like to see in the console? Default (3):"
         )
-        notification_options = {
+        console_level_options = {
             "1": "CRITICAL",
             "2": "ERROR",
             "3": "WARNING",
-            "4": "INFO"
+            "4": "INFO",
+            "5": "DEBUG"
         }
-        log_level = prompt_choice(notification_prompt, notification_options, "4")
-        print(f"Chosen: {log_level} notifications")
-        write_into_dotenv(env_path, "LOG_LEVEL", log_level)
+        console_log_level = prompt_choice(console_level_prompt, console_level_options, "3")
+        print(f"Chosen: {console_log_level} for console notifications")
+        write_into_dotenv(env_path, "CONSOLE_LOG_LEVEL", console_log_level)
 
-        destination_prompt = (
-            "Do you prefer to see notifications directly in the console or saved to a log, default (2)?"
+        file_level_prompt = (
+            "What level of notifications would you like to save to the log file? Default (4):"
         )
-        destination_options = {
-            "1": "LOG_FILE",
-            "2": "CONSOLE"
+        file_level_options = {
+            "1": "CRITICAL",
+            "2": "ERROR",
+            "3": "WARNING",
+            "4": "INFO",
+            "5": "DEBUG"
         }
-        log_destination = prompt_choice(destination_prompt, destination_options, "2")
-        print(f"Chosen: {'log file' if log_destination == 'LOG_FILE' else 'console'}")
-        write_into_dotenv(env_path, "LOGGING_DESTINATION", log_destination)
+        file_log_level = prompt_choice(file_level_prompt, file_level_options, "4")
+        print(f"Chosen: {file_log_level} for log file notifications")
+        write_into_dotenv(env_path, "FILE_LOG_LEVEL", file_log_level)
 
     # Reload .env to ensure the latest values are loaded
     load_dotenv(env_path)
 
-    # Read the log level and destination from the environment
-    log_level = os.getenv("LOG_LEVEL", "INFO")
-    print(f"DEBUG: Loaded log level from .env: {log_level}")  # Debugging message
-    log_destination = os.getenv("LOGGING_DESTINATION", "CONSOLE")
-    print(f"DEBUG: Loaded log destination from .env: {log_destination}")  # Debugging message
+    # Read levels from environment
+    console_log_level = os.getenv("CONSOLE_LOG_LEVEL", "WARNING")
+    file_log_level = os.getenv("FILE_LOG_LEVEL", "INFO")
 
-    # Validate log level
-    if log_level not in valid_levels:
-        print(f"Invalid LOG_LEVEL '{log_level}' found in .env. Defaulting to 'INFO'.")
-        log_level = "INFO"
+    # Validate levels
+    if console_log_level not in valid_levels:
+        print(f"Invalid CONSOLE_LOG_LEVEL '{console_log_level}' found in .env. Defaulting to 'WARNING'.")
+        console_log_level = "WARNING"
+    if file_log_level not in valid_levels:
+        print(f"Invalid FILE_LOG_LEVEL '{file_log_level}' found in .env. Defaulting to 'INFO'.")
+        file_log_level = "INFO"
 
-    logging_config = {
-        "level": valid_levels[log_level],
-        "format": "{asctime} - {levelname} - {message}",
-        "style": "{",
-        "datefmt": "%Y-%m-%d %H:%M",
-    }
+    # Set up the logger
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)  # Capture all logs; handlers will filter them
 
-    if log_destination == "LOG_FILE":
-        logging_config.update({
-            "filename": "steam-gaming-behaviors.log",
-            "encoding": "utf-8",
-            "filemode": "a",
-        })
+    # Create a formatter
+    formatter = logging.Formatter("{asctime} - {levelname} - {message}", style="{", datefmt="%Y-%m-%d %H:%M")
+
+    # Console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(valid_levels[console_log_level])
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    # File handler
+    file_handler = logging.FileHandler("steam-gaming-behaviors.log", encoding="utf-8", mode="a")
+    file_handler.setLevel(valid_levels[file_log_level])
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
 
     try:
-        logging.basicConfig(**logging_config)
-        logging.info(f"Logging initialized with level '{log_level}' and destination '{log_destination}'.")
+        logger.info(f"Logging initialized with console level '{console_log_level}' and file level '{file_log_level}'.")
     except Exception as e:
         print(f"Error setting up logging: {e}")
         raise

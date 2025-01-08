@@ -1,5 +1,7 @@
 import sqlite3
 import logging
+
+from pandas import Timestamp
 from .games import get_games
 from .dotenv import write_into_dotenv
 from datetime import datetime, timedelta
@@ -25,9 +27,9 @@ def check_for_missing_tables(conn, required_tables):
         missing_tables = [table for table in required_tables if table not in existing_tables]
 
         if missing_tables:
-            logging.info(f"Database is missing required tables: {missing_tables}")
+            logging.debug(f"Database is missing required tables: {missing_tables}")
         else:
-            logging.info(f"Database contains all required tables: {required_tables}")
+            logging.debug(f"Database contains all required tables: {required_tables}")
 
         return missing_tables if missing_tables else None
 
@@ -45,24 +47,25 @@ def create_tables(conn, required_tables):
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS games_initial (
                 appid INTEGER PRIMARY KEY,
-                playtime_minutes INTEGER,
+                playtime_minutes INTEGER NOT NULL,
                 name TEXT DEFAULT NULL,
                 icon_hash TEXT DEFAULT NULL,
-                logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
             );
             """)
 
         if "games_recent" in required_tables:
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS games_recent (
-                appid INTEGER,
-                playtime_minutes INTEGER,
-                checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                appid INTEGER NOT NULL,
+                playtime_minutes INTEGER NOT NULL,
+                checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                PRIMARY KEY (appid, checked_at)
             );
             """)
 
         conn.commit()
-        logging.info("Missing tables were created")
+        logging.debug("Missing tables were created")
     
     except sqlite3.Error as e:
         logging.critical(f"Error during database initialization: {e}")
@@ -70,7 +73,7 @@ def create_tables(conn, required_tables):
         raise
 
 def creation_and_initial_population_of_tables(tables, conn, steam_api_key, steam_id):
-    logging.info(f"Initializing missing tables: {tables}")
+    logging.debug(f"Initializing missing tables: {tables}")
 
     # create missing tables
     create_tables(conn, tables)
@@ -107,7 +110,7 @@ def creation_and_initial_population_of_tables(tables, conn, steam_api_key, steam
                 """, (game.appid, game.playtime_minutes, game.name, game.icon_hash))
 
             conn.commit()
-            logging.info("Games data initialized successfully.")
+            logging.debug("Games data initialized successfully.")
 
         except sqlite3.Error as e:
             logging.error(f"Error inserting initial data: {e}")
@@ -121,7 +124,7 @@ def update_games_data(conn, data, env_path, timestamp=None):
             write_into_dotenv(env_path, "LAST_HOURLY_UPDATE", timestamp)
 
         cursor = conn.cursor()
-
+        
         for game in data:
             cursor.execute("""
                 SELECT playtime_minutes
@@ -131,52 +134,70 @@ def update_games_data(conn, data, env_path, timestamp=None):
 
             row = cursor.fetchone()
 
+            updated_games_amt = 0
+
             # Game registered in games_initial
             if row:
                 # Checking playtime for recently played against playtime total in games_initial to determine how long it was played
                 initial_playtime = row[0]
-                incremental_playtime = game.playtime_minutes - initial_playtime
+                incremental_playtime = int(game.playtime_minutes) - initial_playtime
 
                 # Inserting into games_recent if played recently
                 if incremental_playtime > 0:
+                    updated_games_amt += 1
                     cursor.execute("""
                         INSERT INTO games_recent (appid, playtime_minutes, checked_at)
-                        VALUES (?, ?, ?);
+                        VALUES (?, ?, ?)
+                        ON CONFLICT(appid, checked_at) DO UPDATE SET
+                            playtime_minutes = playtime_minutes + excluded.playtime_minutes;
                     """, (game.appid, incremental_playtime, timestamp))
+                    logging.debug(f"{game.name} inserted or updated in games_recent table with timestamp: {timestamp}")
 
-                # Updating games_initial to hold most up-to-date data regarding total playtime
-                cursor.execute("""
-                    UPDATE games_initial
-                    SET playtime_minutes = ?, 
-                        name = COALESCE(?, name), 
-                        icon_hash = COALESCE(?, icon_hash)
-                    WHERE appid = ?;
-                """, (game.playtime_minutes, game.name, game.icon_hash, game.appid))
-            
+                    # Updating games_initial to hold most up-to-date data regarding total playtime
+                    cursor.execute("""
+                        UPDATE games_initial
+                        SET playtime_minutes = ?, 
+                            name = COALESCE(?, name), 
+                            icon_hash = COALESCE(?, icon_hash)
+                        WHERE appid = ?;
+                    """, (game.playtime_minutes, game.name, game.icon_hash, game.appid))
+                    logging.debug(f"Playtime for {game.name} was updated and saved into games_initial with timestamp: {timestamp}") 
+
             # Game not yet registered in games_initial
             else:
+                updated_games_amt += 1
+
                 # Inserting into games_initial
                 cursor.execute("""
                     INSERT INTO games_initial (appid, playtime_minutes, name, icon_hash, logged_at)
                     VALUES (?, ?, ?, ?, ?);
                 """, (game.appid, game.playtime_minutes, game.name, game.icon_hash, timestamp))
+                logging.debug(f"{game.name} was encountered for the first time, saving into games_initial with timestamp: {timestamp}")
 
                 # Checking if family shared game played previously but not in two weeks prior or entirely new game / not played family sharing game
                 # Scenario no. 1 | Family sharing game played previously but not in two weeks prior
-                if game.recently_played != game.playtime_forever:
+                if game.recently_played != game.playtime_minutes:
+                    logging.debug(f"{game.name} is a family sharing game that was played before but not in past two weeks")
                     cursor.execute("""
                         INSERT INTO games_recent (appid, playtime_minutes, checked_at)
                         VALUES (?, ?, ?);
                     """, (game.appid, game.recently_played, timestamp))
+                    logging.debug(f"{game.name} inserted into games_recent table with timestamp: {timestamp}") 
                 # Scenario no. 2 | Entirely new game / not played family sharing game
                 else:
+                    logging.debug(f"{game.name} is a game bought after initial run of steam-gaming-behavior")
                     cursor.execute("""
                         INSERT INTO games_recent (appid, playtime_minutes, checked_at)
                         VALUES (?, ?, ?);
                     """, (game.appid, game.playtime_minutes, timestamp))
+                    logging.debug(f"{game.name} inserted into games_recent table with timestamp: {timestamp}") 
 
         conn.commit()
-        logging.info("Games processed successfully with timestamp: %s", timestamp)
+
+        if updated_games_amt > 0:
+            logging.info(f"{updated_games_amt} processed successfully with timestamp: {timestamp}")
+        else:
+            logging.info("No recently played games to process")
 
     except sqlite3.Error as e:
         logging.error(f"Error processing game updates: {e}")
