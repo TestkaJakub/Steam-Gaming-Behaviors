@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
+from unittest import mock
 from steam_gaming_behavior import *
+from steam_gaming_behavior.games import Game
 from threading import Thread
 import logging
 import time
@@ -49,10 +51,11 @@ def main():
         creation_and_initial_population_of_tables(missing_tables, db_connection, steam_api_key, steam_id)
 
     last_startup_time_next_round_hour, last_hourly_update, was_last_hourly_update_completed = get_required_dotenv_fields(env_path)
-    last_hour_update_correct_time = check_last_hour_update_correct_time(last_startup_time_next_round_hour, last_hourly_update, was_last_hourly_update_completed)
+    last_hour_update_correct_time = check_last_hour_update_correct_time(was_last_hourly_update_completed, last_hourly_update, last_startup_time_next_round_hour)
     
     # get games that user played previously but ended program before round hour
     recent_games = get_games(steam_api_key, steam_id)
+
     update_games_data(db_connection, recent_games, env_path, last_hour_update_correct_time)
 
     current_startup_time_next_round_hour(env_path)

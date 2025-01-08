@@ -1,6 +1,7 @@
 import os
 from .dotenv import write_into_dotenv
 from datetime import datetime, timedelta
+import logging
 
 def get_required_dotenv_fields(env_path):
     last_startup_time_next_round_hour = os.getenv("LAST_STARTUP_NEXT_ROUND_HOUR")
@@ -13,11 +14,14 @@ def get_required_dotenv_fields(env_path):
     return last_startup_time_next_round_hour, last_hourly_update, was_last_hourly_update_completed
 
 def check_last_hour_update_correct_time(was_last_hourly_update_completed, last_hourly_update, last_startup_time_next_round_hour):
-    if was_last_hourly_update_completed:
+    logging.info(f"{was_last_hourly_update_completed}")
+    if was_last_hourly_update_completed == "True":
+        logging.info("Going with last hourly update + 1")
         last_hourly_update_dt = datetime.strptime(last_hourly_update, "%Y-%m-%d %H:%M:%S")
         corrected_time = last_hourly_update_dt + timedelta(hours=1)
         return corrected_time.strftime("%Y-%m-%d %H:%M:%S")
     else:
+        logging.info("Going with last startup update")
         return last_startup_time_next_round_hour
     
 def current_startup_time_next_round_hour(env_path):
